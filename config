@@ -1,0 +1,59 @@
+ngx_addon_name=ngx_http_metrics_module
+
+ngx_feature_name=
+ngx_feature_run=yes
+ngx_feature_incs="#include <yajl/yajl_gen.h>"
+ngx_feature_test="yajl_gen g = yajl_gen_alloc(NULL);
+                  yajl_gen_null(g);"
+
+yajl_feature() {
+    local libdir=$1
+    local incdir=$2
+
+    ngx_feature="YAJL in $1 (includes: $2)"
+    ngx_feature_path=$incdir
+
+    if [ $NGX_RPATH = YES ]; then
+        ngx_feature_libs="-R$libdir -L$libdir -lyajl"
+    else
+        ngx_feature_libs="-L$libdir -lyajl"
+    fi
+    . auto/feature
+}
+
+if [ -n "$LIBYAJL_INC" -o -n "$LIBYAJL_LIB" ]; then
+    yajl_feature $LIBYAJL_LIB $LIBYAJL_INC
+else
+    # auto-discovery
+    ngx_feature="YAJL (autodetection)"
+    ngx_feature_path=
+    ngx_feature_libs="-lyajl"
+    . auto/feature
+
+    if [ $ngx_found = no ]; then
+        yajl_feature /usr/local/lib /usr/local/include
+    fi
+
+    if [ $ngx_found = no ]; then
+        yajl_feature /usr/pkg/lib /usr/pkg/include
+    fi
+
+    if [ $ngx_found = no ]; then
+        yajl_feature /opt/local/lib /opt/local/include
+    fi
+fi
+
+if [ $ngx_found = no ]; then
+   echo "$0: error: $ngx_addon_name requires YAJL"
+   exit 1
+fi
+
+CORE_INCS="$CORE_INCS $ngx_feature_path $ngx_addon_dir/src"
+CORE_LIBS="$CORE_LIBS $ngx_feature_libs"
+
+HTTP_MODULES="$HTTP_MODULES ngx_http_metrics_module"
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_metrics_module.c"
+
+have=NGX_HTTP_METRICS . auto/have
+
+# vim: ft=sh

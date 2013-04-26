@@ -1,0 +1,9 @@
+#!/bin/bash
+
+cd $(dirname $0)/nginx
+
+if [[ ! -f Makefile ]]; then
+	./configure --with-debug --prefix=${PWD}/build --with-http_stub_status_module --add-module=../
+fi
+
+make -j4 && make install && ./build/sbin/nginx -c ${PWD}/../nginx.conf

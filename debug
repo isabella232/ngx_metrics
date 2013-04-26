@@ -1,0 +1,9 @@
+#!/bin/bash
+
+cd $(dirname $0)/nginx
+
+if [[ ! -f Makefile ]]; then
+	./configure --with-debug --prefix=${PWD}/build --add-module=../
+fi
+
+make -j4 && make install && gdb --args ./build/sbin/nginx -c ${PWD}/../nginx.conf
