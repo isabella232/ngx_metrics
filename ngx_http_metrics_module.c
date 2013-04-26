@@ -18,7 +18,7 @@
 #define NGX_HTTP_LAST_LEVEL_500  508
 #define NGX_HTTP_NUM_STATUS_CODES (NGX_HTTP_LAST_LEVEL_500 - NGX_HTTP_OK)
 
-ngx_atomic_t ngx_http_metrics_status_codes[NGX_HTTP_NUM_STATUS_CODES];
+ngx_atomic_t *ngx_http_metrics_status_codes;
 
 static
 ngx_int_t ngx_http_metrics_gen_stub_status(yajl_gen g)
@@ -158,7 +158,7 @@ ngx_int_t
 ngx_http_status_code_count_handler(ngx_http_request_t *r)
 {
   if (r->headers_out.status >= NGX_HTTP_OK && r->headers_out.status < NGX_HTTP_LAST_LEVEL_500) {
-    ngx_http_metrics_status_codes[r->headers_out.status - NGX_HTTP_OK]++;
+    ngx_atomic_fetch_add(&ngx_http_metrics_status_codes[r->headers_out.status - NGX_HTTP_OK], 1);
   }
 
   return NGX_OK;
@@ -178,8 +178,19 @@ ngx_http_metrics_init(ngx_conf_t *cf)
 
     *h = ngx_http_status_code_count_handler;
 
-    ngx_int_t i;
+    ngx_shm_t shm;
+    shm.size = NGX_HTTP_NUM_STATUS_CODES * sizeof(ngx_atomic_t);
+    shm.name.len = sizeof("ngx_http_metrics");
+    shm.name.data = (u_char *) "ngx_http_metrics";
+    shm.log = cf->log;
 
+    if (ngx_shm_alloc(&shm) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    ngx_http_metrics_status_codes = (ngx_atomic_t *)shm.addr;
+
+    ngx_int_t i;
     for (i = 0; i < NGX_HTTP_NUM_STATUS_CODES; i++) {
       ngx_http_metrics_status_codes[i] = 0;
     }
